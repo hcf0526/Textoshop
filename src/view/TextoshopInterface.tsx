@@ -1,4 +1,8 @@
 import EditableTextField from './components/EditableTextField';
+import { useTopOffset } from './ChromeModel';
+import { copySelection, cutSelection, pasteIntoSelection } from './../model/EditActions';
+import { runJob, startJobForSelection } from './../model/PendingEdits';
+import HistoryPanel from './components/HistoryPanel';
 
 import { Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Popover, PopoverContent, PopoverTrigger } from '@nextui-org/react';
 import { useEffect, useState } from 'react';
@@ -7,7 +11,7 @@ import { CgArrowsBreakeH, CgArrowsMergeAltH } from 'react-icons/cg';
 import { MdContentCopy, MdContentCut, MdContentPaste } from 'react-icons/md';
 import { BaseRange, Editor, Node as SlateNode } from 'slate';
 import { ReactEditor } from 'slate-react';
-import { TextSelection, textFieldEditors, tools, useModelStore } from '../model/Model';
+import { textFieldEditors, tools, useModelStore } from '../model/Model';
 import { TextConsolidater } from '../model/tools/promptTools/TextConsolidater';
 import { TextDistributer } from '../model/tools/promptTools/TextDistributer';
 import { useUndoModelStore } from '../model/UndoModel';
@@ -21,9 +25,11 @@ import { RangeUtils } from './components/TextSelection';
 import { TonePicker } from './components/TonePicker';
 import { Toolbar } from './components/Toolbar';
 import { Utils } from './Utils';
+import { useT } from '../i18n';
 
 
 export default function TextoshopInterface(props: { children?: React.ReactNode }) {
+  const t = useT();
   const selectedToolStr = useModelStore(state => state.selectedTool);
   const selectedTool = tools[selectedToolStr];
   const textFields = useModelStore(state => state.textFields);
@@ -57,7 +63,7 @@ export default function TextoshopInterface(props: { children?: React.ReactNode }
 
     const keyUpListener = (e: KeyboardEvent) => {
       if (e.key === "Backspace" && selectedTexts.length === 0 && draggedElementId !== "" && document.activeElement === document.body) {
-        useUndoModelStore.getState().storeUndoState();
+        useUndoModelStore.getState().storeUndoState('Delete text box');
         useModelStore.getState().removeTextField(draggedElementId);
         setDraggedElementId('');
       }
@@ -175,12 +181,14 @@ export default function TextoshopInterface(props: { children?: React.ReactNode }
   }
 
   const disableTools = useStudyStore(state => state.disableTools);
+  // 菜单栏显示时内容整体下移
+  const topOffset = useTopOffset();
   const disableTonePicker = useStudyStore(state => state.disableTonePicker);
   const disableLayers = useStudyStore(state => state.disableLayers);
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', background: '#F2EEF0' }}>
+      <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', paddingTop: topOffset, background: '#F2EEF0' }}>
         <div id="background" style={{ position: 'relative', display: 'flex', justifyContent: 'center', flexGrow: 4, cursor: cursor }}
           onMouseDown={(e) => {
             // Deselect if we are clicking a div with id "background" or "mainTextField"
@@ -233,63 +241,28 @@ export default function TextoshopInterface(props: { children?: React.ReactNode }
               <div style={{ position: 'absolute', left: contextualMenuPosition.x, top: contextualMenuPosition.y, width: 1, height: 1, background: 'red'}}>⋮
               </div>
             </DropdownTrigger>
-            <DropdownMenu disabledKeys={selectedTexts.length === 0 ? ['cut', 'copy'] : []} variant="flat" aria-label="Dropdown menu with shortcut">
-              {[<DropdownItem key="cut"shortcut="⌘X" startContent={<MdContentCut />} onClick={() => {
-                const selectedTexts = useModelStore.getState().selectedTexts;
-                if (selectedTexts.length > 0) {
-                  const text = selectedTexts.map(t => t.text).join(" ");
-                  navigator.clipboard.writeText(text);
-                  // Remove the selected texts
-                  useModelStore.getState().setSelectedTexts(selectedTexts.map(t => ({ ...t, text: "", isLoading: false })));
-                  useModelStore.getState().setSelectedTexts([]);
-                }
-              }}>Cut</DropdownItem>,
-              <DropdownItem key="copy" shortcut="⌘C" startContent={<MdContentCopy />} onClick={() => {
-                const selectedTexts = useModelStore.getState().selectedTexts;
-                if (selectedTexts.length > 0) {
-                  const text = selectedTexts.map(t => t.text).join(" ");
-                  navigator.clipboard.writeText(text);
-                }
-              }}>Copy</DropdownItem>,
-              <DropdownItem key="paste" shortcut="⌘V" startContent={<MdContentPaste />} showDivider={selectedTexts.length > 0} onClick={() => {
-                navigator.clipboard.readText().then(text => {
-                  const selectedTexts = useModelStore.getState().selectedTexts;
-                  if (selectedTexts.length > 0) {
-                    const newSelection: TextSelection[] = [];
-                    for (const selectedText of selectedTexts) {
-                      newSelection.push({ ...selectedText, text: text, isLoading: false });
-                    }
-                    useModelStore.getState().setSelectedTexts(newSelection);
-                    useModelStore.getState().setSelectedTexts([]);
-                  }
-                });
-              }}>Paste</DropdownItem>,
+            <DropdownMenu disabledKeys={selectedTexts.length === 0 ? ['cut', 'copy'] : []} variant="flat" aria-label={t('Dropdown menu with shortcut')}>
+              {[<DropdownItem key="cut"shortcut="⌘X" startContent={<MdContentCut />} onClick={cutSelection}>{t('Cut')}</DropdownItem>,
+              <DropdownItem key="copy" shortcut="⌘C" startContent={<MdContentCopy />} onClick={copySelection}>{t('Copy')}</DropdownItem>,
+              <DropdownItem key="paste" shortcut="⌘V" startContent={<MdContentPaste />} showDivider={selectedTexts.length > 0} onClick={pasteIntoSelection}>{t('Paste')}</DropdownItem>,
               <DropdownItem key="break" startContent={<CgArrowsBreakeH />} onClick={() => {
                 const selectedTexts = useModelStore.getState().selectedTexts;
                 if (selectedTexts.length > 0) {
-                  // Mark selection as loading
-                  useModelStore.getState().setSelectedTexts(selectedTexts.map(t => ({ ...t, isLoading: true })));
-
-                  new TextDistributer(selectedTexts[0].text).execute().then(result => {
-                    useModelStore.getState().animateNextChanges();
-                    useModelStore.getState().setSelectedTexts(selectedTexts.map(t => ({ ...t, text: result, isLoading: false })));
-                  })
+                  // 结果写回发请求时标记的原文，等待期间可以点别处
+                  const job = startJobForSelection(selectedTexts[0].selectionId);
+                  runJob(job, new TextDistributer(selectedTexts[0].text).execute(), 'Break into sentences');
                 }
               }}
-              >Break into sentences</DropdownItem>,
+              >{t('Break into sentences')}</DropdownItem>,
               <DropdownItem key="merge" startContent={<CgArrowsMergeAltH />} onClick={() => {
                 const selectedTexts = useModelStore.getState().selectedTexts;
                 if (selectedTexts.length > 0) {
-                  // Mark selection as loading
-                  useModelStore.getState().setSelectedTexts(selectedTexts.map(t => ({ ...t, isLoading: true })));
-
-                  new TextConsolidater(selectedTexts[0].text).execute().then(result => {
-                    useModelStore.getState().animateNextChanges();
-                    useModelStore.getState().setSelectedTexts(selectedTexts.map(t => ({ ...t, text: result, isLoading: false })));
-                  })
+                  // 结果写回发请求时标记的原文，等待期间可以点别处
+                  const job = startJobForSelection(selectedTexts[0].selectionId);
+                  runJob(job, new TextConsolidater(selectedTexts[0].text).execute(), 'Merge into one sentence');
                 }
               }}
-              >Merge into one sentence</DropdownItem>,
+              >{t('Merge into one sentence')}</DropdownItem>,
           ].slice(0, selectedTexts.length === 0 ? 3 : 5)}
             </DropdownMenu>
           </Dropdown>}
@@ -297,9 +270,10 @@ export default function TextoshopInterface(props: { children?: React.ReactNode }
         </div>
         {!disableTools && <Toolbar />}
 
-        <div style={{ position: 'absolute', right: 0, top: 0, paddingTop: 20, paddingRight: 20, paddingBottom: 20, display: 'flex', flexDirection: 'column', gap: 20, height: '100vh' }}>
+        <div style={{ position: 'absolute', right: 0, top: 0, paddingTop: 20 + topOffset, paddingRight: 20, paddingBottom: 20, display: 'flex', flexDirection: 'column', gap: 20, height: '100vh' }}>
           {!disableTonePicker && <TonePicker />}
           {!disableLayers && <LayerManager />}
+          {!disableTools && <HistoryPanel style={{ flex: '1 1 0', minHeight: 150 }} />}
         </div>
       </div>
     </>

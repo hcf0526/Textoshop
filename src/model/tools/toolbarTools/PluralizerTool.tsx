@@ -12,6 +12,11 @@ export class PluralizerTool extends LocalWithGlobalImpactTool {
         return <MdTextIncrease />;
     }
 
+    // 单复数与时态属于英文语法，中文正文里停用
+    supportsMostlyHanText() : boolean {
+        return false;
+    }
+
     getIconHotspot(): { x: number; y: number; } {
         return { x: 8, y: 8 };
     }
@@ -36,6 +41,11 @@ export class SingularizerTool extends LocalWithGlobalImpactTool {
 
     getIcon() : React.ReactElement {
         return <MdTextDecrease />;
+    }
+
+    // 单复数与时态属于英文语法，中文正文里停用
+    supportsMostlyHanText() : boolean {
+        return false;
     }
 
     getIconHotspot(): { x: number; y: number; } {

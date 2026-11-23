@@ -12,6 +12,7 @@ import { RiEyeCloseFill, RiEyeFill } from "react-icons/ri";
 import useResizeObserver from "use-resize-observer";
 import { useUndoModelStore } from "../../model/UndoModel";
 import { editSlateState } from "../../model/utils/TextUtils";
+import { useT } from "../../i18n";
 
 
 export const LAYER_COLOR_PALETTE = ["#1f78b4", "#ff7f00", "#33a02c", "#e31a1c", "#6a3d9a", "#a6cee3", "#b2df8a", "#fb9a99", "#fdbf6f", "#cab2d6", "#ffff99", "#b15928"];
@@ -53,6 +54,7 @@ function FolderArrow({ node }: { node: NodeApi<HiearchicalLayer> }) {
 }
 
 export function LayerListElement(props: NodeRendererProps<HiearchicalLayer>) {
+  const t = useT();
   const animateNextChanges = useModelStore(state => state.animateNextChanges);
   const setLayerVisibility = useModelStore(state => state.setLayerVisibility);
   const selectedLayerId = useModelStore(state => state.selectedLayerId);
@@ -87,7 +89,7 @@ export function LayerListElement(props: NodeRendererProps<HiearchicalLayer>) {
            <FolderArrow node={props.node} />
         </div>
         <MdTextSnippet color={isVisible ? props.node.data.layer.color : '#AAAEB1'} size={16} />
-        <span>{props.node.isEditing ? <Input node={props.node} /> : props.node.data.layer.name}</span>
+        <span>{props.node.isEditing ? <Input node={props.node} /> : t(props.node.data.layer.name)}</span>
       </div>
     </div>
     <button className={props.node.data.layer.isVisible ? "group-[:not(:hover)]:opacity-0" : "opacity-1"} style={{ marginRight: 2, position: 'absolute', right: 5 }}
@@ -108,6 +110,7 @@ export function LayerListElement(props: NodeRendererProps<HiearchicalLayer>) {
 
 
 export function LayerManager() {
+  const t = useT();
   const layers = useModelStore(state => state.layers);
   const flattenedLayers = TextLayerUtils.flattenHierarchicalLayers(layers);
   const setSelectedLayer = useModelStore(state => state.setSelectedLayer);
@@ -123,7 +126,7 @@ export function LayerManager() {
 
   return (<Card style={{ width: 250, }}>
     <CardHeader>
-      <span style={{ fontWeight: 600 }}>Layers</span>
+      <span style={{ fontWeight: 600 }}>{t('Layers')}</span>
     </CardHeader>
     <Divider />
     <CardBody style={{ margin: 0, padding: 0 }}>
@@ -178,7 +181,7 @@ export function LayerManager() {
         })*/}
         <div style={{ display: 'flex', justifyContent: 'right', margin: 10, gap: 5 }}>
 
-          <Tooltip placement="bottom" content="Add new layer" closeDelay={0}>
+          <Tooltip placement="bottom" content={t('Add new layer')} closeDelay={0}>
             <Button size="sm" onFocus={(e) => (e.target as any)!.blur()} isIconOnly onClick={() => {
 
               // First, we figure out where the layer should be added
@@ -201,7 +204,7 @@ export function LayerManager() {
                 color = unusedColors[0];
               }
 
-              useUndoModelStore.getState().storeUndoState();
+              useUndoModelStore.getState().storeUndoState('Add layer');
 
              
               const selectedTexts = useModelStore.getState().selectedTexts.filter(e => e.textFieldId === "mainTextField");
@@ -235,10 +238,10 @@ export function LayerManager() {
             }><BiSolidLayerPlus size={"18"} /></Button>
           </Tooltip>
 
-          <Tooltip placement="bottom" content="Delete selected layer" closeDelay={0}>
+          <Tooltip placement="bottom" content={t('Delete selected layer')} closeDelay={0}>
             <Button isDisabled={selectedLayerId === 0} onFocus={(e) => (e.target as any)!.blur()} size="sm" isIconOnly onClick={() => {
               const selectedLayer = useModelStore.getState().selectedLayerId;
-              useUndoModelStore.getState().storeUndoState();
+              useUndoModelStore.getState().storeUndoState('Delete layer');
               useModelStore.getState().removeLayer(selectedLayer);
             }}><FaTrashAlt /></Button>
           </Tooltip>

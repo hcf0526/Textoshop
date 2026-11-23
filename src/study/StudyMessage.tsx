@@ -1,7 +1,9 @@
 import { Button, Card, CardBody } from "@nextui-org/react";
 import { useStudyStore } from "./StudyModel";
+import { useT } from "../i18n";
 
 export default function StudyMessage(props: { content: string, showNextButton?: boolean }) {
+  const t = useT();
   const nextStep = useStudyStore(state => state.nextStep);
 
   return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'rgb(242, 238, 240)' }}>
@@ -12,7 +14,7 @@ export default function StudyMessage(props: { content: string, showNextButton?: 
         <Button style={{ marginTop: 20, width: 100 }} onClick={(e) => {
           useStudyStore.getState().logEvent("NEXT_PRESSED");
           nextStep();
-        }}>Next</Button>
+        }}>{t('Next')}</Button>
       </div> }
     </CardBody>
   </Card>

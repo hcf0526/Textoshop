@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { usePendingStore } from "../../model/PendingEdits";
 import { RxCornerBottomRight } from "react-icons/rx";
 import { BaseRange, Editor, Location, NodeMatch, Point, RangeMode, Transforms, createEditor } from "slate";
 import { Editable, ReactEditor, RenderLeafProps, Slate, withReact } from "slate-react";
@@ -62,6 +63,9 @@ Transforms.removeNodes = ((editor: Editor, options?: {
 }) as any;
 
 const Leaf = (props: any) => {
+    // 改写任务进行中的文字闪烁显示，任务结束后标记会被移除
+    const pendingRunning = usePendingStore((s) => !!props.leaf.pendingId && s.jobs[props.leaf.pendingId]?.status === 'running');
+
     if (props.leaf.selection && props.leaf.selectionClassname === "textSelection") {
         return <SelectedText leaf={props.leaf} editor={props.editor} id={"selection"} className={"selectedText"}>{props.children}</SelectedText>
     } else if (props.leaf.test) {
@@ -90,15 +94,15 @@ const Leaf = (props: any) => {
         classes.push("textRemoval");
     } else if (props.leaf.added) {
         classes.push("textAddition");
-    } else if (props.leaf.selectionClassname) {
-        classes.push(props.leaf.selectionClassname);
+    } else if (props.leaf.selectionClassname || pendingRunning) {
+        classes.push(props.leaf.selectionClassname || props.leaf.pendingClassname);
         classes.push("loading"); // Those are always loading
         const tone = useModelStore.getState().tone;
         (style as any)['--tone-color'] = `${tone[0].value/10*255}, ${tone[1].value/10*255}, ${tone[2].value/10*255}`;
     }
 
     // By default we just render a basic span
-    return <span style={style} className={classes.join(" ")} {...props.attributes}>{props.children}</span>
+    return <span style={style} className={classes.join(" ")} data-pending-id={pendingRunning ? props.leaf.pendingId : undefined} {...props.attributes}>{props.children}</span>
 }
 
 
@@ -197,6 +201,10 @@ export default function EditableTextField(props: {style?: React.CSSProperties, i
                         useModelStore.getState().tone.map(e => ({...e, value: 5}))
                     )
                 }
+            } else {
+                // 工具自行标记了目标文字，清掉编辑器与浏览器的选区
+                editor.deselect();
+                window.getSelection()?.removeAllRanges();
             }
         }
     }

@@ -3,8 +3,10 @@ import React, { useCallback, useEffect, useState } from "react";
 import { IoSend } from "react-icons/io5";
 import { useModelStore } from "../../model/Model";
 import { useViewModelStore } from "../../model/ViewModel";
+import { useT } from "../../i18n";
 
 export function PromptBox() {
+  const t = useT();
   const selectedTexts = useModelStore(state => state.selectedTexts);
   const isPromptBoxOpen = useViewModelStore(state => state.isPromptBoxOpen);
   const closePromptBox = useViewModelStore(state => state.closePromptBox);
@@ -68,7 +70,7 @@ export function PromptBox() {
         }
       }}
 
-      placeholder="Type your prompt here..." endContent={
+      placeholder={t('Type your prompt here...')} endContent={
         <Button size="sm" isIconOnly onClick={onSendPrompt}>
           <IoSend />
         </Button>

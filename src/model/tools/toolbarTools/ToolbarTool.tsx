@@ -44,6 +44,11 @@ export class ToolbarTool {
         return;
     }
 
+    // 正文以汉字为主时能否使用，按英文语法改写的工具返回 false
+    supportsMostlyHanText() : boolean {
+        return true;
+    }
+
     isSelectionOpaque() : boolean {
         return false; // By default, the selection is overlaid on top of the text, but for some effects, we might want it to be opaque
     }

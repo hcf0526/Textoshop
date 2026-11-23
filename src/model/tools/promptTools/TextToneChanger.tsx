@@ -39,7 +39,7 @@ export class TextToneChanger extends PromptTool<string, ToneLevel[], string> {
             });
         }
 
-        return useModelStore.getState().executePrompt({ prompt: prompt + "\nRespond with a JSON object with the property 'sentence'", json: true }).then(result => {
+        return useModelStore.getState().executePrompt({ prompt: prompt + "\nKeep the same language as the original text.\nRespond with a JSON object with the property 'sentence'", json: true }).then(result => {
             //const newText = TextUtils.getFittingString(result.result, text);
             try {
                 const sentenceObject = PromptParserUtils.parseJSON(result.result);

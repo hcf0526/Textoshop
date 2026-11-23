@@ -1,12 +1,14 @@
 import { Card, CardBody, CardHeader, Divider, Input, Slider } from "@nextui-org/react";
 import chroma from "chroma-js";
 import React, { useEffect, useMemo, useState } from "react";
-import { TextSelection, useModelStore } from "../../model/Model";
+import { useModelStore } from "../../model/Model";
+import { runJob, startJobForSelection } from "../../model/PendingEdits";
 import { TextToneChanger } from "../../model/tools/promptTools/TextToneChanger";
-import { useUndoModelStore } from "../../model/UndoModel";
 import { useStudyStore } from "../../study/StudyModel";
+import { useT } from "../../i18n";
 
 export function TonePicker() {
+  const t = useT();
   const tone = useModelStore(state => state.tone);
   const setTone = useModelStore(state => state.setTone);
 
@@ -65,23 +67,12 @@ export function TonePicker() {
 
   function changeSelectedTextTone() {
     if (selectedTexts.length === 1 && toneChanger) {
-      toneChanger.cachedExecute(tone).then(result => {
-        const newSelection: TextSelection[] = [];
-        for (const selectedText of selectedTexts) {
-          newSelection.push({ ...selectedText, text: result, isLoading: false });
-        }
-        useUndoModelStore.getState().storeUndoState();
-        useModelStore.getState().animateNextChanges();
-        useModelStore.getState().setSelectedTexts(newSelection);
-      });
-      // Show that the selection is loading
-      const newSelection: TextSelection[] = [];
-      for (const selectedText of useModelStore.getState().selectedTexts) {
-        newSelection.push({ ...selectedText, isLoading: true });
-      }
-      useModelStore.getState().setSelectedTexts(newSelection);
+      // 结果写回发请求时标记的原文，选区保留，等待期间也可以点别处
+      const job = startJobForSelection(selectedTexts[0].selectionId);
+      runJob(job, toneChanger.cachedExecute(tone), 'Change tone');
     }
   }
+
 
 
   const currentWheelPosition = getWheelPositionFromColor(tone[0].value / nToneValues * 255, tone[1].value / nToneValues * 255, tone[2].value / nToneValues * 255, wheelSize, wheelSize);
@@ -141,7 +132,7 @@ export function TonePicker() {
   return (
     <Card style={{ width: 250, minHeight: 451 }}>
       <CardHeader>
-        <span style={{ fontWeight: 600 }}>Tone picker</span>
+        <span style={{ fontWeight: 600 }}>{t('Tone picker')}</span>
       </CardHeader>
       <Divider />
       <CardBody>
@@ -178,7 +169,7 @@ export function TonePicker() {
                   guides.map((guide, i) => {
                     return <g  key={i}>
                       <line markerEnd="url(#arrow)"x1={currentWheelPosition[0]} y1={currentWheelPosition[1]} x2={guide.position[0]} y2={guide.position[1]} stroke="black" strokeWidth="2" />
-                      <text  x={guide.position[0]} y={guide.position[1]} textAnchor={guide.textAnchor} dominantBaseline={guide.dominantBaseline} fontSize="10" fill="black">{guide.name}</text>
+                      <text  x={guide.position[0]} y={guide.position[1]} textAnchor={guide.textAnchor} dominantBaseline={guide.dominantBaseline} fontSize="10" fill="black">{t(guide.name)}</text>
                     </g> 
                   })
                 }
@@ -188,21 +179,22 @@ export function TonePicker() {
               <div className="drop-shadow-md" style={{ position: 'absolute', left: currentWheelPosition[0] - 8, top: currentWheelPosition[1] - 8, width: 16, height: 16, border: '3px solid white', borderRadius: '50%', background: currentWheelColor }}></div>
             }
           </div>
-          {tone.map((t, i) => <div key={i} >
+          {tone.map((toneSpace, i) => <div key={i} >
             <div style={{ display: 'flex', flexDirection: 'row', textAlign: 'right', justifyContent: 'space-between', gap: 30 }}>
-              <Input size="sm" value={t.lowAdjective} onValueChange={(e) => {
+              {/* 语气形容词只在显示时翻译，存储值保持英文，用户改写后按输入原样保存并用于提示词 */}
+              <Input size="sm" value={t(toneSpace.lowAdjective)} onValueChange={(e) => {
                 tone[i].lowAdjective = e;
                 useStudyStore.getState().logEvent("TONE_NAMES_CHANGED", {tone: tone});
                 setTone([...tone]);
               }}></Input>
-              <Input style={{ textAlign: 'right' }} size="sm" value={t.highAdjective} onValueChange={(e) => {
+              <Input style={{ textAlign: 'right' }} size="sm" value={t(toneSpace.highAdjective)} onValueChange={(e) => {
                 tone[i].highAdjective = e;
                 useStudyStore.getState().logEvent("TONE_NAMES_CHANGED", {tone: tone});
                 setTone([...tone]);
               }}></Input>
 
             </div>
-            <Slider aria-label={t.highAdjective} showSteps color={['danger', 'success', 'primary'][i] as any} size='md' minValue={0} maxValue={10} step={1} value={t.value} /*label={t.lowAdjective} */
+            <Slider aria-label={t(toneSpace.highAdjective)} showSteps color={['danger', 'success', 'primary'][i] as any} size='md' minValue={0} maxValue={10} step={1} value={toneSpace.value} /*label={toneSpace.lowAdjective} */
               onChange={(e) => { tone[i].value = e as number; setTone([...tone]) }}
               onChangeEnd={(e) => {
                 useStudyStore.getState().logEvent("TONE_CHANGED", {source: 'slider', tone: tone});

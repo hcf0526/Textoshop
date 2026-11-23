@@ -1,13 +1,15 @@
-import { Button, Card, CardBody, CardHeader, Divider, Input, Select, SelectItem } from "@nextui-org/react";
+import { Button, Card, CardBody, CardHeader, Divider, Select, SelectItem } from "@nextui-org/react";
+import { markExampleOpening } from '../model/DocumentModel';
 import { useState } from "react";
 import { FaPaintBrush } from "react-icons/fa";
+import { useT } from '../i18n';
 import { useModelStore } from '../model/Model';
 import { useStudyStore } from "../study/StudyModel";
 
 export default function Launcher() {
-  const [accessKey, setAccessKey] = useState('');
+  const t = useT();
+  // 大模型配置在左下角齿轮的设置里，跟随账号保存
   const [pid, setPid] = useState(-1);
-  const setOpenAIKey = useModelStore((state) => state.setOpenAIKey);
   const resetModel = useModelStore((state) => state.reset);
   const resetStudyModel = useStudyStore((state) => state.reset);
 
@@ -33,7 +35,9 @@ export default function Launcher() {
 
     useModelStore.getState().refreshTextFields();
 
-    window.location.hash = '/free-form' + `?k=${btoa(accessKey)}`;
+    // 示例另存为新文档，不覆盖当前文档
+    markExampleOpening();
+    window.location.hash = '/free-form';
 }
 
   return <div style={{display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: '100vh'}}>
@@ -41,20 +45,9 @@ export default function Launcher() {
         <CardHeader><span style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 5, fontWeight: 600}}><FaPaintBrush /> Textoshop</span></CardHeader>
         <Divider />
         <CardBody>
-            <p>To run the examples below, please paste an OpenAI API key. You can obtain one from <a href="https://platform.openai.com/account/api-keys">here</a>.</p>
-            <Input variant="faded" label="API Key" placeholder="sk-..." style={{marginTop: 10}}
-            onChange={(e) => {
-                setAccessKey(e.target.value);
-                setOpenAIKey(e.target.value);
-            }}
-            ></Input>
-        </CardBody>
-        <Divider />
-        <CardBody>
-            <span style={{fontWeight: 800}}>Shortcuts to try out Textoshop on examples</span>
+            <span style={{fontWeight: 800}}>{t('Shortcuts to try out Textoshop on examples')}</span>
             <div style={{display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 40, marginTop: 10}}>
                 <Button 
-                isDisabled={accessKey.length === 0}
                     onClick={() => {
                         startExample(`Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, “and what is the use of a book,” thought Alice “without pictures or conversations?”
 
@@ -68,10 +61,9 @@ The rabbit-hole went straight on like a tunnel for some way, and then dipped sud
 
 Either the well was very deep, or she fell very slowly, for she had plenty of time as she went down to look about her and to wonder what was going to happen next. First, she tried to look down and make out what she was coming to, but it was too dark to see anything; then she looked at the sides of the well, and noticed that they were filled with cupboards and book-shelves; here and there she saw maps and pictures hung upon pegs. She took down a jar from one of the shelves as she passed; it was labelled “ORANGE MARMALADE”, but to her great disappointment it was empty: she did not like to drop the jar for fear of killing somebody underneath, so managed to put it into one of the cupboards as she fell past it.`)
                     }}
-                >Alice in Wonderland</Button>
+                >{t('Alice in Wonderland')}</Button>
                 
                 <Button
-                isDisabled={accessKey.length === 0}
                     onClick={() => {
                         startExample(`Artificial intelligence (AI), in its broadest sense, is intelligence exhibited by machines, particularly computer systems. It is a field of research in computer science that develops and studies methods and software that enable machines to perceive their environment and use learning and intelligence to take actions that maximize their chances of achieving defined goals. Such machines may be called AIs.
 
@@ -85,35 +77,34 @@ The various subfields of AI research are centered around particular goals and th
 
 To reach these goals, AI researchers have adapted and integrated a wide range of techniques, including search and mathematical optimization, formal logic, artificial neural networks, and methods based on statistics, operations research, and economics. AI also draws upon psychology, linguistics, philosophy, neuroscience, and other fields.`)
                     }}
-                >Wikipedia "Artificial Intelligence"</Button>
+                >{t('Wikipedia "Artificial Intelligence"')}</Button>
 
                 <Button
-                isDisabled={accessKey.length === 0}
                     onClick={() => {
                         startExample("");
                     }}
-                >Blank Page</Button>
+                >{t('Blank Page')}</Button>
             </div>
         </CardBody>
         <Divider />
         <CardBody>
-            <span style={{fontWeight: 800}}>Run the study</span>
+            <span style={{fontWeight: 800}}>{t('Run the study')}</span>
             <div style={{display: 'flex', flexDirection: 'row', justifyContent: 'left', alignItems: 'center', gap: 40, marginTop: 10}}>
-                <Select isDisabled={accessKey.length === 0}
-                variant="faded" label="Participant ID" className="max-w-xs" 
+                <Select
+                variant="faded" label={t('Participant ID')} className="max-w-xs" 
                 onChange={(e) => setPid(parseInt(e.target.value))}>
                     {
                         Array.from({length: 12}, (_, i) => i).map((i) => <SelectItem key={i} value={i+1} textValue={"P" + (i+1)}>P{i+1}</SelectItem>)
                     }
                 </Select>
                 <Button
-                    isDisabled={accessKey.length === 0 || pid === -1}
+                    isDisabled={pid === -1}
                     onClick={() => {
                         resetModel();
                         resetStudyModel();
-                        window.location.hash = '/study' + '?pid=' + pid + `&k=${btoa(accessKey)}`;
+                        window.location.hash = '/study' + '?pid=' + pid;
                     }}
-                >Start</Button>
+                >{t('Start')}</Button>
             </div>
         </CardBody>
     </Card>

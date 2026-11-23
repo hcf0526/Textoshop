@@ -1,9 +1,8 @@
 import { ToolTextSelectionEvent, ToolbarTool } from "./ToolbarTool";
+import { runJob, startJob } from "../../PendingEdits";
 import { BsFillHandIndexThumbFill } from "react-icons/bs";
 import React from "react";
-import { TextSelection, useModelStore } from "../../Model";
 import { TextSmudger } from "../promptTools/TextSmudger";
-import { useUndoModelStore } from "../../UndoModel";
 
 export class SmudgeTool extends ToolbarTool {
     constructor() {
@@ -30,17 +29,10 @@ export class SmudgeTool extends ToolbarTool {
         const text = event.range.toString()
 
         if (text.length > 1) {
-            new TextSmudger(text).execute().then(result => {
-                const selectedTexts = useModelStore.getState().selectedTexts;
-                const newSelection: TextSelection[] = [];
-                for (const selectedText of selectedTexts) {
-                    newSelection.push({ ...selectedText, text: result, isLoading: false });
-                }
-                useUndoModelStore.getState().storeUndoState();
-                useModelStore.getState().animateNextChanges();
-                useModelStore.getState().setSelectedTexts(newSelection);
-                useModelStore.getState().setSelectedTexts([]);
-            });
+            // 结果写回发请求时标记的原文，等待期间可以点别处或改写其他文字
+            event.preventTextSelection = true;
+            const job = startJob(event.editor, event.slateRange, this.getMarksClassname());
+            runJob(job, new TextSmudger(text).execute(), SmudgeTool.getToolName());
           }
     }
 

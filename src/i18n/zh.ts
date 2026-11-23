@@ -1,0 +1,166 @@
+// 中文译文，键为界面英文原文。按界面区域分组。
+export const zh: Record<string, string> = {
+    // 登录与账号
+    'Sign in': '登录',
+    'Sign out': '退出',
+    'Username': '用户名',
+    'Password': '密码',
+    'Invalid username or password': '用户名或密码错误',
+    'Too many attempts, try again later': '尝试次数过多，请稍后再试',
+    'Network error': '网络错误',
+    'Signed in as {user}': '当前用户 {user}',
+
+    // 历史记录
+    'History': '历史记录',
+    'Open': '打开',
+    'Edit text': '编辑文字',
+    'Delete text box': '删除文本框',
+    'Merge text': '合并文本',
+    'Change tone': '调整语气',
+    'Reorder': '调整语序',
+    'Resize': '调整长度',
+    'Add layer': '新建图层',
+    'Delete layer': '删除图层',
+
+    // 调整长度
+    'words': '词',
+    'chars': '字',
+
+    // 请求状态
+    'Request failed': '请求失败',
+    'Request succeeded': '成功',
+    'Text changed': '已修改',
+
+    // 设置
+    'Settings': '设置',
+    'Model settings': '模型设置',
+    'Timeout': '超时时间',
+    'Disable thinking': '关闭思考',
+    'Saved': '已保存',
+    'Between 5 and 600 seconds': '范围 5 至 600 秒',
+    'Model ID': '模型 ID',
+    'Save': '保存',
+    'Cancel': '取消',
+    'Show': '显示',
+    'Hide': '隐藏',
+    'Save failed': '保存失败',
+    'Base URL must start with http:// or https://': '需以 http:// 或 https:// 开头',
+
+    // 语言切换按钮显示的是目标语言
+    'Language': '语言',
+
+    // 启动页
+    'Base URL': 'Base URL',
+    'API Key': 'API Key',
+    'Model': '模型',
+    'Shortcuts to try out Textoshop on examples': '示例文本',
+    'Alice in Wonderland': '爱丽丝',
+    'Wikipedia "Artificial Intelligence"': '人工智能',
+    'Blank Page': '空白页',
+    'Run the study': '用户实验',
+    'Participant ID': '参与者编号',
+    'Start': '开始',
+
+    // 工具栏
+    'Select': '选择',
+    'Tone Brush': '语气画笔',
+    'Tone Picker': '语气取色器',
+    'Smudge': '涂抹',
+    'Pluralizer': '改为复数',
+    'Singularizer': '改为单数',
+    'To Past Tense': '改为过去时',
+    'To Present Tense': '改为现在时',
+    'To Future Tense': '改为将来时',
+    'Repair / Fix Grammar': '修复语法',
+    'Erase': '橡皮擦',
+    'Prompt': '提示词',
+    'Undo': '撤销',
+    'Redo': '重做',
+
+    // 右键菜单
+    'Dropdown menu with shortcut': '右键菜单',
+    'Cut': '剪切',
+    'Copy': '复制',
+    'Paste': '粘贴',
+    'Break into sentences': '拆分为句子',
+    'Merge into one sentence': '合并为一句',
+
+    // 文本片段合并
+    'Insert': '插入',
+    'Unite': '合并',
+    'Intersect': '相交',
+    'Subtract': '减去',
+    'Exclude': '排除',
+
+    // 图层面板
+    'Layers': '图层',
+    'Add new layer': '新建图层',
+    'Delete selected layer': '删除图层',
+    'New layer': '新图层',
+    'Layer 1': '图层 1',
+    'Layer 2': '图层 2',
+    'Layer 3': '图层 3',
+
+    // 语气取色器与提示词框
+    'Informal': '随意',
+    'Formal': '正式',
+    'Negative': '消极',
+    'Positive': '积极',
+    'Complicated': '复杂',
+    'Simple': '简单',
+    'Impolite': '失礼',
+    'Polite': '礼貌',
+    'Tone picker': '语气取色器',
+    'Type your prompt here...': '输入提示词',
+
+    // 用户实验
+    'Error: Make sure the URL is correct.': '网址错误',
+    'Instructions': '任务说明',
+    'How succesfull were you in accomplishing these tasks?': '任务完成度',
+    'Unsuccessful': '失败',
+    'Successful': '成功',
+    'Reset': '重置',
+    'Press for at least 1second': '长按 1 秒',
+    'Next': '下一步',
+    'Your browser does not support the video tag.': '浏览器无法播放视频',
+    'Choose the text you will work with.': '选择实验文本',
+    'I will use my own text': '自备文本',
+    'Wikipedia "Marie Curie"': '居里夫人',
+    "Alice's Adventures in Wonderland": '爱丽丝',
+    'Message ChatGPT': '输入消息',
+
+    // 工具栏
+    'Not available for Chinese text': '中文不适用',
+
+    // 菜单栏与文档
+    'Document': '文档',
+    'New': '新建',
+    'Rename': '重命名',
+    'Import': '导入',
+    'Download': '下载',
+    'Export as TXT': '导出为 TXT',
+    'Export as Markdown': '导出为 Markdown',
+    'Export as Word': '导出为 Word',
+    'Delete document': '删除文档',
+    'Edit': '编辑',
+    'About': '关于',
+    'About Textoshop': '关于 Textoshop',
+    'Original paper': '原论文',
+    'Source code': '源代码',
+    'Unsaved': '未保存',
+    'Saving': '保存中',
+    'Operation failed': '操作失败',
+    'Import failed': '导入失败',
+    'Documents': '文档列表',
+    'Delete': '删除',
+    'Paper': '论文',
+    'Venue': '会议',
+    'Authors': '作者',
+    'Upstream': '原项目',
+    'This project': '本项目',
+    'License': '许可',
+    'Purpose': '用途',
+    'Ubiquitous and Edge Computing course project': '普适计算与边缘计算课程项目',
+    'Sample document': '示例文档',
+    'Untitled': '未命名文档',
+};

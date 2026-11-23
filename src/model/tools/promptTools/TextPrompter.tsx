@@ -21,6 +21,7 @@ export class TextPrompter extends PromptTool<string, string, string> {
 
 INSTRUCTION: ${action}
 Rewrite <blank>. Follow INSTRUCTION
+Keep the same language as the original text unless INSTRUCTION says otherwise.
 <blank>:`
 
         return useModelStore.getState().executePrompt({ prompt: prompt }).then(result => {

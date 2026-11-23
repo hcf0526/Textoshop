@@ -34,7 +34,7 @@ export class TextMerger extends PromptTool<{triggerText: string, receiverText: s
                 break;
         }
 
-        let prompt = `A: ${triggerText}\nB: ${receiverText}\n\n${operationPrompt}`;
+        let prompt = `A: ${triggerText}\nB: ${receiverText}\n\n${operationPrompt} Keep the same language as the original text.`;
 
         return useModelStore.getState().executePrompt({ prompt: prompt }).then(result => {
             const newText = TextUtils.getFittingString(result.result, receiverText);

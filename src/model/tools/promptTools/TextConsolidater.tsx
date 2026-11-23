@@ -10,7 +10,7 @@ export class TextConsolidater extends PromptTool<string, void, string> {
         useStudyStore.getState().logEvent("PROMPT_TOOL_EXECUTED", { className: this.constructor.name, input: this.input });
 
 
-        let prompt = `${text}\n\n` + "Combine this text into one sentence.";
+        let prompt = `${text}\n\n` + "Combine this text into one sentence. Keep the same language as the original text.";
 
         return useModelStore.getState().executePrompt({ prompt: prompt }).then(result => {
             const newText = TextUtils.getFittingString(result.result, text);

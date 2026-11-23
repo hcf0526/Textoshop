@@ -34,7 +34,7 @@ export class TextReorganizer extends PromptTool<string, number, string> {
 
         const text = this.input;
 
-        let prompt = `${text}\n\nReorganize the words in ${COUNT} different ways.`;
+        let prompt = `${text}\n\nReorganize the words in ${COUNT} different ways. Keep the same language as the original text.`;
 
         return useModelStore.getState().executePrompt({ prompt: prompt }).then(result => {
             // Add the list to the cache

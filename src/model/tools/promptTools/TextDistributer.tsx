@@ -11,7 +11,7 @@ export class TextDistributer extends PromptTool<string, void, string> {
 
 
 
-        let prompt = `${text}\n\n` + "Break this text into multiple sentences. One sentence per idea.";
+        let prompt = `${text}\n\n` + "Break this text into multiple sentences. One sentence per idea. Keep the same language as the original text.";
 
         return useModelStore.getState().executePrompt({ prompt: prompt }).then(result => {
             const newText = TextUtils.getFittingString(result.result, text);

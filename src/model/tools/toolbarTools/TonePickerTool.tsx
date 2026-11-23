@@ -1,4 +1,5 @@
 import { FaEyeDropper } from "react-icons/fa6";
+import { completeJob, failJob, startJob } from "../../PendingEdits";
 import { useStudyStore } from "../../../study/StudyModel";
 import { useModelStore } from "../../Model";
 import { useUndoModelStore } from "../../UndoModel";
@@ -28,11 +29,17 @@ export class TonePickerTool extends ToolbarTool {
         const text = event.range.toString()
 
         if (text.length > 1) {
+            // 吸取语气不改动文字，标记只用于显示闪烁与计时
+            event.preventTextSelection = true;
+            const job = startJob(event.editor, event.slateRange, this.getMarksClassname());
             new TextTonePicker(text).execute(tone).then(result => {
-                useUndoModelStore.getState().storeUndoState();
+                useUndoModelStore.getState().storeUndoState(TonePickerTool.getToolName());
                 useStudyStore.getState().logEvent("TONE_CHANGED", {source: "eyedropper", tone: tone});
                 useModelStore.getState().setTone(result);
-                useModelStore.getState().setSelectedTexts([]);
+                completeJob(job);
+            }, (error) => {
+                console.error(error);
+                failJob(job);
             });
         }
     }

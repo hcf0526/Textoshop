@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { ChatCompletionTool } from 'openai/resources/index.mjs';
 import { BaseEditor, BaseSelection, Editor, Node, Point, Transforms } from 'slate';
@@ -7,6 +6,8 @@ import { z } from 'zod';
 import { create } from 'zustand';
 import { useStudyStore } from '../study/StudyModel';
 import { LAYER_COLOR_PALETTE } from '../view/components/LayerManager';
+import { openai, requestSignal, resolveModel } from './LLMConfig';
+import { cachedRequest } from './PromptCache';
 import { DrawTool } from './tools/toolbarTools/DrawTool';
 import { EraserTool } from './tools/toolbarTools/EraserTool';
 import { PluralizerTool, SingularizerTool } from './tools/toolbarTools/PluralizerTool';
@@ -23,27 +24,8 @@ import { TextAnimationUtils } from './utils/TextAnimationUtils';
 import { TextLayerUtils } from './utils/TextLayerUtils';
 
 
-// Get the key from the URL parameters
-const hashSplitted = window.location.hash.split("?");
-const search = hashSplitted[hashSplitted.length-1]
-const params = new URLSearchParams(search);
-const key = params.get('k');
-
-let openaiKey = ""
-if (!key) {
-    if ("VITE_OPENAI_API_KEY" in import.meta.env) {
-        openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    } /*else {
-        throw new Error("No key provided in the URL parameters");
-    }*/
-} else {
-    openaiKey = atob(key)
-}
-
-export const openai = new OpenAI({
-    apiKey: openaiKey,
-    dangerouslyAllowBrowser: true
-});
+// OpenAI 客户端及 Base URL、密钥、模型配置见 LLMConfig.ts，这里保持原有导出路径
+export { openai };
 
 
 export interface TextFieldAnimation {
@@ -169,7 +151,6 @@ interface ModelAction {
     addLayer: (layer: HiearchicalLayer, parentId: number | null, idWithinParent: number) => void
     setTone: (tone: ToneLevel[]) => void
     setToolOrderInToolbar: (toolsOrderInToolbar: string[][]) => void
-    setOpenAIKey: (key: string) => void
 }
 
 
@@ -199,15 +180,16 @@ function getInitialState() {
         [(tools[PrompterTool.getToolName()] = new PrompterTool()).name]
     ]
 
+    // 默认示例为中文组员催交消息，语气随意且消极，便于演示语气取色器与调整长度
     const startingLayers = [
         { id: "1", layer: { name: "Layer 1", color: "white", isVisible: true, state: [{
             //@ts-ignore
             type: "paragraph",
-            children: [{ text: `   Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, “and what is the use of a book,” thought Alice “without pictures or conversations?”
-        
-            So she was considering in her own mind (as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.
-        
-            There was nothing so _very_ remarkable in that; nor did Alice think it so _very_ much out of the way to hear the Rabbit say to itself, “Oh dear! Oh dear! I shall be late!” (when she thought it over afterwards, it occurred to her that she ought to have wondered at this, but at the time it all seemed quite natural); but when the Rabbit actually _took a watch out of its waistcoat-pocket_, and looked at it, and then hurried on, Alice started to her feet, for it flashed across her mind that she had never before seen a rabbit with either a waistcoat-pocket, or a watch to take out of it, and burning with curiosity, she ran across the field after it, and fortunately was just in time to see it pop down a large rabbit-hole under the hedge.` }]
+            children: [{ text: `老王，那个项目报告到底咋回事啊？说好周五交，结果拖到现在连个影子都没有。大家天天在群里等你，你倒好，消息没回，电话也没人听。说实话我真的挺烦的，这已经是这学期第二回了。
+
+上次中期答辩你也是拖到最后一晚才把材料甩过来，PPT 里的数据对没对上都没人知道，害得我们几个熬到凌晨三点一页一页地改。老师当场就问我们组是没好好做吗，那种滋味你能体会吗？
+
+下周一要是报告还没到，咱们组这次分数肯定完蛋，到时候你自己去跟老师解释吧。你要是真有什么难处，就直说，大家都愿意帮忙。可你一声没吭，谁也没法替你扛。` }]
         }], modifications: {} }, 
                 children: [] },
                 { id: "2", layer: { name: "Layer 2", color: LAYER_COLOR_PALETTE[0], isVisible: true, modifications: {} }, children: [] },
@@ -252,6 +234,78 @@ function forEachEditor<Type>(array : Type [], textFieldIdRetriever: (e : Type) =
     });
 }
 
+// 发送一次大模型请求，失败时 reject
+async function runPrompt(executablePrompt: ExecutablePrompt): Promise<PromptResult> {
+    const logEvent = useStudyStore.getState().logEvent;
+
+    const uniqueId = Math.random().toString(36).substring(7);
+    const signal = requestSignal(); // 超时后中止，计时器显示请求失败
+
+    if (executablePrompt.response_format) {
+        const completion = openai.beta.chat.completions.parse({
+            model: resolveModel(executablePrompt.model),
+            messages: [{ role: 'user', content: executablePrompt.prompt }],
+            temperature: 0,
+            response_format: zodResponseFormat(executablePrompt.response_format.zodObject, executablePrompt.response_format.name)
+        }, { signal })
+
+        logEvent("PROMPT_SENT_TO_GPT", {...executablePrompt, uniqueId: uniqueId});
+
+        return new Promise<PromptResult>(async (resolve, reject) => {
+            completion.then((result) => {
+                const message = result.choices[0]?.message;
+                if (message?.parsed) {
+                    logEvent("RESULT_FROM_GPT", {uniqueId: uniqueId, response: message.content});
+    
+                    resolve({ result: message.content || "", parsed: message.parsed });
+                } else {
+                    reject(new Error("Empty parsed result"));
+                }
+            }).catch(reject);
+        });
+
+        
+    } else {
+        const sendRequest = (useJsonFormat: boolean) => openai.chat.completions.create({
+            model: resolveModel(executablePrompt.model),
+            messages: [{ role: 'user', content: executablePrompt.prompt }],
+            stream: true,
+            temperature: 0,
+            response_format: useJsonFormat ? { "type": "json_object" } : undefined,
+        }, { signal });
+
+        let stream: Awaited<ReturnType<typeof sendRequest>>;
+        try {
+            stream = await sendRequest(!!executablePrompt.json);
+        } catch (error: any) {
+            // 部分兼容服务不支持 response_format，去掉该参数重试，结果由 PromptParserUtils 容错解析
+            if (executablePrompt.json && error?.status === 400) {
+                stream = await sendRequest(false);
+            } else {
+                throw error;
+            }
+        }
+
+        logEvent("PROMPT_SENT_TO_GPT", {...executablePrompt, uniqueId: uniqueId});
+
+        return new Promise<PromptResult>(async (resolve, reject) => {
+            let completeResult = "";
+            try {
+                for await (const chunk of stream) {
+                    const chunkStr = chunk.choices[0]?.delta?.content || '';
+                    completeResult += chunkStr;
+                }
+            } catch (error) {
+                reject(error);
+                return;
+            }
+            logEvent("RESULT_FROM_GPT", {uniqueId: uniqueId, response: completeResult});
+
+            resolve({ result: completeResult });
+        });
+    }
+}
+
 export const useModelStore = create<ModelState & ModelAction>()((set, get) => ({
     ...getInitialState(),
     reset: () => {
@@ -264,55 +318,20 @@ export const useModelStore = create<ModelState & ModelAction>()((set, get) => ({
         useStudyStore.getState().logEvent("TOOL_SELECTED", {tool: tool});
     },
     getSelectedTool: () => tools[get().selectedTool],
-    executePrompt: async (executablePrompt) => {
-        const logEvent = useStudyStore.getState().logEvent;
-
-        const uniqueId = Math.random().toString(36).substring(7);
-
-        if (executablePrompt.response_format) {
-            const completion = openai.beta.chat.completions.parse({
-                model: executablePrompt.model ? executablePrompt.model : 'gpt-4o',
-                messages: [{ role: 'user', content: executablePrompt.prompt }],
-                temperature: 0,
-                response_format: zodResponseFormat(executablePrompt.response_format.zodObject, executablePrompt.response_format.name)
-            })
-
-            logEvent("PROMPT_SENT_TO_GPT", {...executablePrompt, uniqueId: uniqueId});
-
-            return new Promise<PromptResult>(async (resolve, reject) => {
-                completion.then((result) => {
-                    const message = result.choices[0]?.message;
-                    if (message?.parsed) {
-                        logEvent("RESULT_FROM_GPT", {uniqueId: uniqueId, response: message.content});
-        
-                        resolve({ result: message.content || "", parsed: message.parsed });
-                    }
-                });
-            });
-
-            
-        } else {
-            const stream = await openai.chat.completions.create({
-                model: executablePrompt.model ? executablePrompt.model : 'gpt-4o',
-                messages: [{ role: 'user', content: executablePrompt.prompt }],
-                stream: true,
-                temperature: 0,
-                response_format: executablePrompt.json ? { "type": "json_object" } : undefined,
-            });
-    
-            logEvent("PROMPT_SENT_TO_GPT", {...executablePrompt, uniqueId: uniqueId});
-    
-            return new Promise<PromptResult>(async (resolve, reject) => {
-                let completeResult = "";
-                for await (const chunk of stream) {
-                    const chunkStr = chunk.choices[0]?.delta?.content || '';
-                    completeResult += chunkStr;
-                }
-                logEvent("RESULT_FROM_GPT", {uniqueId: uniqueId, response: completeResult});
-    
-                resolve({ result: completeResult });
-            });
-        }
+    // 相同的模型、提示词与输出格式命中缓存时直接返回，见 PromptCache.ts
+    executePrompt: (executablePrompt) => {
+        const key = JSON.stringify([
+            resolveModel(executablePrompt.model),
+            executablePrompt.prompt,
+            !!executablePrompt.json,
+            executablePrompt.response_format?.name ?? null,
+        ]);
+        return cachedRequest(key, () => runPrompt(executablePrompt)).catch((error) => {
+            // 请求失败时停止选区的闪烁，再把错误抛给调用方
+            console.error(error);
+            set((state) => ({ selectedTexts: state.selectedTexts.map(t => t.isLoading ? { ...t, isLoading: false } : t) }));
+            throw error;
+        });
     },
     setTextFields: (textFields) => {
         const previousTextFields = get().textFields;
@@ -666,9 +685,6 @@ export const useModelStore = create<ModelState & ModelAction>()((set, get) => ({
         set((state) => ({ tone: tone }))
     },
     setToolOrderInToolbar: (toolsOrderInToolbar) => set((state) => ({ toolsOrderInToolbar: toolsOrderInToolbar })),
-    setOpenAIKey: (key) => {
-        openai.apiKey = key;
-      },
 }))
 
 

@@ -13,7 +13,7 @@ export class TextPluralizer extends PromptTool<{start: string, text: string, end
         useStudyStore.getState().logEvent("PROMPT_TOOL_EXECUTED", { className: this.constructor.name, input: this.input, parameters: type });
 
         const label = type === TextPluralizerType.SINGULARIZE ? "PART_TO_SINGULAR" : "PART_TO_PLURAL";
-        let prompt = `${this.input.start.trim()} ${label} ${this.input.end.trim()}\n\n` + `${label}: ${this.input.text.trim()}\n\nRewrite this text by ${type === TextPluralizerType.PLURALIZE ? "pluralizing" : "singularizing"} ${label}.`;
+        let prompt = `${this.input.start.trim()} ${label} ${this.input.end.trim()}\n\n` + `${label}: ${this.input.text.trim()}\n\nRewrite this text by ${type === TextPluralizerType.PLURALIZE ? "pluralizing" : "singularizing"} ${label}. Keep the same language as the original text.`;
 
         return useModelStore.getState().executePrompt({ prompt: prompt }).then(result => {
             const newText = TextUtils.getFittingString(result.result, this.input.start + this.input.text + this.input.end);

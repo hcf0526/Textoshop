@@ -1,20 +1,22 @@
 import { Button, Card, CardBody } from "@nextui-org/react";
 import { useStudyStore } from "./StudyModel";
+import { useT } from "../i18n";
 
 export default function FreeFormLauncher(props: {  }) {
+  const t = useT();
   const nextStep = useStudyStore(state => state.nextStep);
 
   return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'rgb(242, 238, 240)' }}>
   <Card style={{ width: 500, padding: 10 }}>
     <CardBody>
      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-     <div dangerouslySetInnerHTML={{__html: "Choose the text you will work with."}} />
+     <div>{t('Choose the text you will work with.')}</div>
 
         <Button color={"primary"} style={{ marginTop: 20, width: 300}} onClick={(e) => {
           useStudyStore.getState().setFreeformText("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
           useStudyStore.getState().logEvent("NEXT_PRESSED");
           nextStep();
-        }}>I will use my own text</Button>
+        }}>{t('I will use my own text')}</Button>
 
         <Button  style={{ marginTop: 20, width: 300}} onClick={(e) => {
           useStudyStore.getState().setFreeformText(`Artificial intelligence (AI), in its broadest sense, is intelligence exhibited by machines, particularly computer systems. It is a field of research in computer science that develops and studies methods and software that enable machines to perceive their environment and use learning and intelligence to take actions that maximize their chances of achieving defined goals. Such machines may be called AIs.
@@ -30,7 +32,7 @@ The various subfields of AI research are centered around particular goals and th
 To reach these goals, AI researchers have adapted and integrated a wide range of techniques, including search and mathematical optimization, formal logic, artificial neural networks, and methods based on statistics, operations research, and economics. AI also draws upon psychology, linguistics, philosophy, neuroscience, and other fields.`);
           useStudyStore.getState().logEvent("NEXT_PRESSED");
           nextStep();
-        }}>Wikipedia "Artificial Intelligence"</Button>
+        }}>{t('Wikipedia "Artificial Intelligence"')}</Button>
       <Button style={{ marginTop: 20, width: 300}} onClick={(e) => {
           useStudyStore.getState().setFreeformText(`Maria Salomea Skłodowska-Curie (born 7 November 1867 - 4 July 1934), known simply as Marie Curie, was a Polish and naturalised-French physicist and chemist who conducted pioneering research on radioactivity. She was the first woman to win a Nobel Prize, the first person to win a Nobel Prize twice, and the only person to win a Nobel Prize in two scientific fields. Her husband, Pierre Curie, was a co-winner of her first Nobel Prize, making them the first married couple to win the Nobel Prize and launching the Curie family legacy of five Nobel Prizes. She was, in 1906, the first woman to become a professor at the University of Paris.
 
@@ -39,7 +41,7 @@ She was born in Warsaw, in what was then the Kingdom of Poland, part of the Russ
 While a French citizen, Marie Skłodowska Curie, who used both surnames, never lost her sense of Polish identity. She taught her daughters the Polish language and took them on visits to Poland. She named the first chemical element she discovered polonium, after her native country. Marie Curie died in 1934, aged 66, at the Sancellemoz sanatorium in Passy (Haute-Savoie), France, of aplastic anemia likely from exposure to radiation in the course of her scientific research and in the course of her radiological work at field hospitals during World War I. In addition to her Nobel Prizes, she received numerous other honours and tributes; in 1995 she became the first woman to be entombed on her own merits in the Paris Panthéon, and Poland declared 2011 the Year of Marie Curie during the International Year of Chemistry. She is the subject of numerous biographical works.`);
           useStudyStore.getState().logEvent("NEXT_PRESSED");
           nextStep();
-        }}>Wikipedia "Marie Curie"</Button>
+        }}>{t('Wikipedia "Marie Curie"')}</Button>
 
 
 <Button style={{ marginTop: 20, width: 300}} onClick={(e) => {
@@ -56,7 +58,7 @@ The rabbit-hole went straight on like a tunnel for some way, and then dipped sud
 Either the well was very deep, or she fell very slowly, for she had plenty of time as she went down to look about her and to wonder what was going to happen next. First, she tried to look down and make out what she was coming to, but it was too dark to see anything; then she looked at the sides of the well, and noticed that they were filled with cupboards and book-shelves; here and there she saw maps and pictures hung upon pegs. She took down a jar from one of the shelves as she passed; it was labelled “ORANGE MARMALADE”, but to her great disappointment it was empty: she did not like to drop the jar for fear of killing somebody underneath, so managed to put it into one of the cupboards as she fell past it.`);
           useStudyStore.getState().logEvent("NEXT_PRESSED");
           nextStep();
-        }}>Alice's Adventures in Wonderland</Button>
+        }}>{t("Alice's Adventures in Wonderland")}</Button>
 
 </div>
     </CardBody>

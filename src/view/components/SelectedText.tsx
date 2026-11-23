@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
-import { BaseEditor, Transforms } from "slate";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { BaseEditor, Node, Path, Text, Transforms } from "slate";
 import { ReactEditor } from "slate-react";
 import { MoveableTextField, TextSelection, useModelStore } from "../../model/Model";
 import { TextReorganizer } from "../../model/tools/promptTools/TextReorganizer";
 import { TextResizer } from "../../model/tools/promptTools/TextResizer";
-import { useUndoModelStore } from "../../model/UndoModel";
-import { TextUtils } from "../../model/utils/TextUtils";
+import { countUnits, fillerJoiner, fillerText, isMostlyHan, measureTargetUnits, prefixUnits, tokenize } from "../../model/utils/LengthMeasure";
+import { useT } from "../../i18n";
+import { applyJob, failJob, startJobForSelection, usePendingStore } from "../../model/PendingEdits";
 import { DraggingParameters, useViewModelStore } from "../../model/ViewModel";
 import { useStudyStore } from "../../study/StudyModel";
 import { Utils } from "../Utils";
@@ -33,8 +34,10 @@ export function SelectedText(props: { children: JSX.Element, id: string, style?:
     const seHandleRef = useRef<HTMLDivElement>(null);
     const [temporaryText, setTemporaryText] = useState(textString);
     const [rotationMarkLevel, setRotationMarkLevel] = useState(0);
-    const spacePaddingCharacter = ". "; // Has to use a space otherwise it does not properly wrap
-    const [resizingWidth, setResizingWidth] = useState(0);
+    // 拖动调整长度时的目标字数，null 表示没有在拖动
+    const [targetUnits, setTargetUnits] = useState<number | null>(null);
+    const measureFrame = useRef(0);
+    const t = useT();
     const startDragging = useViewModelStore(state => state.startDragging);
     const dragging = useViewModelStore(state => state.dragging);
     const elementId = useId();
@@ -42,7 +45,6 @@ export function SelectedText(props: { children: JSX.Element, id: string, style?:
     const disableResizing = useStudyStore(state => state.disableResizing);
     const disableDragging = useStudyStore(state => state.disableDragging);
 
-    const animateNextChanges = useModelStore(state => state.animateNextChanges);
 
     const radius = 50;
     const centerOffset = Math.round(radius / 1.42);
@@ -98,6 +100,22 @@ export function SelectedText(props: { children: JSX.Element, id: string, style?:
         // Make sure we don't keep too many text resizers
         if (lastTextResizers.length > 5) {
             lastTextResizers.shift();
+        }
+    }
+
+    function getTextBefore(): string {
+        try {
+            const textNode = props.children.props.text as Text;
+            const path = ReactEditor.findPath(props.editor, textNode);
+            const blockPath = Path.parent(path);
+            let before = '';
+            for (const [node, relPath] of Node.texts(Node.get(props.editor, blockPath))) {
+                if (Path.equals([...blockPath, ...relPath], path)) break;
+                before += node.text;
+            }
+            return before;
+        } catch {
+            return '';
         }
     }
 
@@ -176,30 +194,38 @@ export function SelectedText(props: { children: JSX.Element, id: string, style?:
         const mouseUpListener = (e: MouseEvent) => {
             if (isRotating) {
                 setIsRotating(false);
-                if (textString.length > 0 && textString.split(" ").length > 1) {
+                // 至少两个词才能调整语序，用 countUnits 计数，中文也适用
+                if (textString.length > 0 && countUnits(textString) > 1) {
+                    // 结果写回发请求时标记的原文，等待期间可以点别处
+                    const job = startJobForSelection(props.leaf.selectionId);
                     textReorganizer.cachedExecute(rotationMarkLevel).then(result => {
-                        useUndoModelStore.getState().storeUndoState();
-                        animateNextChanges();
-                        replaceSelectedText(result);
+                        applyJob(job, result, 'Reorder');
+                        setIsLoading(false);
+                    }, () => {
+                        failJob(job);
                         setIsLoading(false);
                     });
                     setIsLoading(true);
                 }
             } else if (isResizing) {
                 setIsResizing(false);
-                if (resizingWidth !== 0) {
-                    const spacePadding = TextUtils.getBestSpacePadding(textString, resizingWidth, childrenRef.current!, spacePaddingCharacter);
-                    const newLength = textString.length + spacePadding;
-                    const textResizerToUse = Math.abs(spacePadding) < 10 ? new TextResizer(textString) : textResizer;
-                    textResizerToUse.cachedExecute(newLength).then(result => {
-                        useUndoModelStore.getState().storeUndoState();
-                        animateNextChanges();
+                cancelAnimationFrame(measureFrame.current);
+                if (targetUnits !== null && targetUnits !== tokenize(textString).tokens.length) {
+                    // 结果写回发请求时标记的原文，等待期间可以点别处
+                    const job = startJobForSelection(props.leaf.selectionId);
+                    textResizer.cachedExecute(targetUnits).then(result => {
                         setTemporaryText(result); // Useless in most cases except when the text remains the same
-                        setResizingWidth(0);
-                        replaceSelectedText(result);
+                        setTargetUnits(null);
+                        applyJob(job, result, 'Resize');
+                        setIsLoading(false);
+                    }, () => {
+                        failJob(job);
+                        setTargetUnits(null);
                         setIsLoading(false);
                     });
                     setIsLoading(true);
+                } else {
+                    setTargetUnits(null);
                 }
             }
         }
@@ -209,18 +235,27 @@ export function SelectedText(props: { children: JSX.Element, id: string, style?:
                 // Calculate the new width of the selection
                 const seHandleRect = seHandleRef.current?.getBoundingClientRect();
 
-                if (seHandleRef.current && seHandleRect) {
-                    // Get the parent whose role is a textbox
-                    let textBox = seHandleRef.current.parentElement?.closest("[role=textbox]") as HTMLElement;
-
-                    if (textBox) {
-                        const extraWidth = TextUtils.getAbsoluteWrappedLinesWidth(textBox, seHandleRect.left+seHandleRect.width/2, seHandleRect.top+seHandleRect.height/2, e.clientX, e.clientY);
-                        let currentText = temporaryText.substring(0, Math.min(temporaryText.length + spacePadding, temporaryText.length));
-                        currentText += spacePaddingCharacter.repeat(Math.max(spacePadding, 0));
-                        const currentWidth = Utils.getTextMetrics(currentText, Utils.getCanvasFont(textBox)).width;
-
-                        setResizingWidth(currentWidth+extraWidth);
-                    }
+                // 用 Pretext 模拟段落排版，找出鼠标位置对应的字数，每帧最多算一次
+                const paragraph = seHandleRef.current?.closest('[data-slate-node="element"]') as HTMLElement | null;
+                if (seHandleRect && paragraph) {
+                    const clientX = e.clientX, clientY = e.clientY;
+                    cancelAnimationFrame(measureFrame.current);
+                    measureFrame.current = requestAnimationFrame(() => {
+                        const rect = paragraph.getBoundingClientRect();
+                        const style = getComputedStyle(paragraph);
+                        const padLeft = parseFloat(style.paddingLeft) || 0;
+                        const padRight = parseFloat(style.paddingRight) || 0;
+                        const padTop = parseFloat(style.paddingTop) || 0;
+                        const lineHeight = parseFloat(style.lineHeight) || (parseFloat(style.fontSize) || 16) * 1.2;
+                        setTargetUnits(measureTargetUnits({
+                            before: getTextBefore(),
+                            selection: temporaryText,
+                            font: Utils.getCanvasFont(paragraph),
+                            maxWidth: rect.width - padLeft - padRight,
+                            pointerLine: Math.floor((clientY - rect.top - padTop) / lineHeight),
+                            pointerX: clientX - rect.left - padLeft,
+                        }));
+                    });
                 }
             } else if (isRotating) {
                 mouseEventToRotationMark(e as any);
@@ -235,12 +270,15 @@ export function SelectedText(props: { children: JSX.Element, id: string, style?:
             window.removeEventListener('mousemove', mouseMoveListener);
             window.removeEventListener('keydown', keyDownListener);
         }
-    }, [isResizing, isRotating, resizingWidth, rotationMarkLevel, textString]);
+    }, [isResizing, isRotating, targetUnits, rotationMarkLevel, textString]);
 
-    let spacePadding = 0;
-    if (resizingWidth > 0) {
-        spacePadding = childrenRef.current ? TextUtils.getBestSpacePadding(temporaryText, resizingWidth, childrenRef.current!, spacePaddingCharacter) : 0;
-    }
+    // 拖动预览，缩短时只显示前若干个词，拉长时用透明的填充文字撑开选区
+    const tokenized = useMemo(() => tokenize(temporaryText), [temporaryText]);
+    const totalUnits = tokenized.tokens.length;
+    const shownText = targetUnits !== null && targetUnits < totalUnits ? prefixUnits(tokenized, targetUnits) : temporaryText;
+    const paddingText = targetUnits !== null && targetUnits > totalUnits ? fillerJoiner(temporaryText) + fillerText(tokenized, targetUnits - totalUnits) : '';
+    const unitDelta = targetUnits === null ? 0 : targetUnits - totalUnits;
+    const unitLabel = t(isMostlyHan(temporaryText) ? 'chars' : 'words');
 
     const onMouseDown = (e: React.MouseEvent) => {
         setIsMouseDown(true);
@@ -305,16 +343,16 @@ export function SelectedText(props: { children: JSX.Element, id: string, style?:
         }
     }
     
-    const useLoadingClass = isLoading || selectedText?.isLoading;
+    const pendingRunning = usePendingStore((s) => !!props.leaf.pendingId && s.jobs[props.leaf.pendingId]?.status === 'running');
+    const useLoadingClass = isLoading || selectedText?.isLoading || pendingRunning;
     const handleSize = 7;
-    const trimmedTemporaryText = temporaryText.substring(0, Math.min(temporaryText.length + spacePadding, temporaryText.length));
 
     const doNothing = (e : React.MouseEvent) => { 
         e.preventDefault();
         e.stopPropagation();
     };
 
-    return <div id={elementId} style={{ position: 'relative', display: 'inline', cursor: 'pointer', opacity: isDragged ? '0.5' : '1' }} 
+    return <div id={elementId} data-selection-id={props.leaf.selectionId} data-pending-id={pendingRunning ? props.leaf.pendingId : undefined} style={{ position: 'relative', display: 'inline', cursor: 'pointer', opacity: isDragged ? '0.5' : '1' }} 
     onMouseDown={onMouseDown} onMouseMove={onMouseMove} onClick={doNothing} onDoubleClick={doNothing} onMouseUp={onMouseUp} className={(useLoadingClass ? "loading " : "")+props.className}>
 
 
@@ -328,11 +366,16 @@ export function SelectedText(props: { children: JSX.Element, id: string, style?:
             ref={props.ref}
             style={{ position: 'relative', background: 'rgba(129, 189, 255, 0.5)', overflow: 'hidden', ...props.style }}
         >
-            <span ref={childrenRef}><span>{trimmedTemporaryText}</span></span>
-            <span style={{ color: 'transparent' }}>{spacePaddingCharacter.repeat(Math.max(spacePadding, 0))}</span>
+            <span ref={childrenRef}><span>{shownText}</span></span>
+            <span style={{ color: 'transparent' }}>{paddingText}</span>
         </span>
         {/* Place the resize and rotation handle at the end of the selection */}
         <span style={{ position: 'relative' }}>
+            {isResizing && unitDelta !== 0 && <div style={{ position: 'absolute', left: 8, top: -26, zIndex: 10000, pointerEvents: 'none', whiteSpace: 'nowrap',
+                fontSize: 12, fontWeight: 600, lineHeight: '18px', padding: '1px 8px', borderRadius: 9, background: 'white', color: '#3f3f46',
+                boxShadow: 'rgba(0, 0, 0, 0.12) 0px 2px 8px', fontVariantNumeric: 'tabular-nums' }}>
+                {unitDelta > 0 ? '+' : '−'}{Math.abs(unitDelta)} {unitLabel}
+            </div>}
             {!disableResizing && <div ref={rotationHandle} style={{ position: 'absolute', left: -4, top: -4, border: '1px solid hsl(214, 84%, 56%)', width: handleSize, height: handleSize, background: 'white', cursor: neRotationCursor }} onMouseDown={(ev) => {
                 ev.stopPropagation();
                 ev.preventDefault();

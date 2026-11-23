@@ -1,7 +1,7 @@
 import React from "react";
+import { runJob, startJobForSelection } from "../../PendingEdits";
 import { RiInputCursorMove } from "react-icons/ri";
-import { TextSelection, useModelStore } from "../../Model";
-import { useUndoModelStore } from "../../UndoModel";
+import { useModelStore } from "../../Model";
 import { useViewModelStore } from "../../ViewModel";
 import { TextPrompter } from "../promptTools/TextPrompter";
 import { ToolTextSelectionEvent, ToolbarTool } from "./ToolbarTool";
@@ -30,25 +30,10 @@ export class PrompterTool extends ToolbarTool {
         const followingText = event.followingRange.toString();
 
         useViewModelStore.getState().setPromptBoxValidatedCallback((prompt: string) => {
-            // Mark the seleciton as loading
-            const selectedTexts = useModelStore.getState().selectedTexts;
-            const newSelection: TextSelection[] = [];
-            for (const selectedText of selectedTexts) {
-                newSelection.push({ ...selectedText, isLoading: true });
-            }
-            useModelStore.getState().setSelectedTexts(newSelection);
-
-            new TextPrompter(selectedText, precedingText, followingText).execute(prompt).then(result => {
-                const selectedTexts = useModelStore.getState().selectedTexts;
-                const newSelection: TextSelection[] = [];
-                for (const selectedText of selectedTexts) {
-                    newSelection.push({ ...selectedText, text: result, isLoading: false });
-                }
-                useUndoModelStore.getState().storeUndoState();
-                useModelStore.getState().animateNextChanges();
-                useModelStore.getState().setSelectedTexts(newSelection);
-                useModelStore.getState().setSelectedTexts([]);
-            });
+            // 把选区换成改写任务标记，随后清掉选区，结果写回原文
+            const job = startJobForSelection(event.selectionid, this.getMarksClassname());
+            useModelStore.getState().setSelectedTexts([]);
+            runJob(job, new TextPrompter(selectedText, precedingText, followingText).execute(prompt), PrompterTool.getToolName());
         });
         useViewModelStore.getState().openPromptBox();
     }

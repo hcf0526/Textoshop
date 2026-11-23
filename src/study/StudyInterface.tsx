@@ -9,10 +9,12 @@ import StudyMessage from './StudyMessage';
 import { useStudyStore } from './StudyModel';
 import { StudyTaskGenerator } from './StudyTaskGenerator';
 import StudyVideo from './StudyVideo';
+import { useT } from "../i18n";
 
 
 
 export default function StudyInterface() {
+  const t = useT();
   const nextStep = useStudyStore(state => state.nextStep);
   const [showSlider, setShowSlider] = useState(false);
   let participantId = useStudyStore(state => state.participantId);
@@ -49,7 +51,7 @@ export default function StudyInterface() {
   const currentStep = steps[stepId];
 
   if (participantId < 0 || !currentStep) {
-    return <StudyMessage content="Error: Make sure the URL is correct." />
+    return <StudyMessage content={t('Error: Make sure the URL is correct.')} />
   }
 
   if (currentStep.type === "MESSAGE") {
@@ -66,13 +68,13 @@ export default function StudyInterface() {
     <Card style={{ width: 300 }}>
       <CardBody>
         <Accordion isCompact defaultExpandedKeys={["1"]}>
-          <AccordionItem key="1" aria-label="Accordion 1" title="Instructions" style={{whiteSpace: 'pre-wrap'}}>
+          <AccordionItem key="1" aria-label="Accordion 1" title={t('Instructions')} style={{whiteSpace: 'pre-wrap'}}>
             {!showSlider && currentStep.instructions![instructionIndex]}
           </AccordionItem>
         </Accordion>
-        {showSlider && <span style={{ width: '100%', marginTop: 20, marginBottom: 10, textAlign: 'center' }}>How succesfull were you in accomplishing these tasks?</span>}
+        {showSlider && <span style={{ width: '100%', marginTop: 20, marginBottom: 10, textAlign: 'center' }}>{t('How succesfull were you in accomplishing these tasks?')}</span>}
         <div style={{ display: 'flex', flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          {showSlider && <Slider value={sliderValue} onChange={(v) => setSliderValue(v as number)}  showSteps={true} minValue={1} maxValue={5} step={1} label={"Unsuccessful"} getValue={() => "Successful"} 
+          {showSlider && <Slider value={sliderValue} onChange={(v) => setSliderValue(v as number)}  showSteps={true} minValue={1} maxValue={5} step={1} label={t("Unsuccessful")} getValue={() => t("Successful")} 
           classNames={{
             thumb: sliderValue < 0 ? "hidden" : "",
             track: sliderValue < 0 ? "border-s-transparent" : "",
@@ -94,10 +96,10 @@ export default function StudyInterface() {
                 }
               }}
               
-              >Reset</Button>
+              >{t('Reset')}</Button>
             </PopoverTrigger>
             <PopoverContent>
-              <p>Press for at least 1second</p>
+              <p>{t('Press for at least 1second')}</p>
             </PopoverContent>
           </Popover>}
           <Button isDisabled={showSlider && sliderValue < 0} color={isOutOfTime ? "danger" : undefined} style={{ flexGrow: 5 }} onClick={(e) => {
@@ -117,7 +119,7 @@ export default function StudyInterface() {
                 nextStep();
               }
             }
-          }}>Next</Button>
+          }}>{t('Next')}</Button>
         </div>
       </CardBody>
     </Card>

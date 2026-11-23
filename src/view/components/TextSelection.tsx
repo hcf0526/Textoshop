@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Utils } from "../Utils";
+import { hanWordBoundary } from "../../model/utils/LengthMeasure";
 
 export module RangeUtils {
     export function getRangeSnappedToWord(originalRange: Range) : Range {
@@ -29,6 +30,16 @@ export module RangeUtils {
         }
         if (spaceEaten && range.endOffset !== originalRange.endOffset) range.setEnd(range.endContainer, range.endOffset - 1);
 
+        // 中文按词吸附，起点或终点落在词内部时扩到词的边界
+        if (range.startContainer.nodeType === Node.TEXT_NODE) {
+            const start = hanWordBoundary((range.startContainer as Text).data, range.startOffset, 'start');
+            if (start !== range.startOffset) range.setStart(range.startContainer, start);
+        }
+        if (range.endContainer.nodeType === Node.TEXT_NODE) {
+            const end = hanWordBoundary((range.endContainer as Text).data, range.endOffset, 'end');
+            if (end !== range.endOffset) range.setEnd(range.endContainer, end);
+        }
+
         return range;
     }
 
@@ -39,7 +50,8 @@ export module RangeUtils {
 
         if (range.toString().length === 0) return originalRange;
 
-        while (range.toString()[0].match(/[^\.\(\n;\):]/)) {
+        // 句子边界同时包含中文的句号、问号、叹号、分号、冒号、省略号与全角括号
+        while (range.toString()[0].match(/[^\.\(\n;\):。！？；：…（）]/)) {
             try {
                 range.setStart(range.startContainer, range.startOffset - 1);   
             } catch (e) {
@@ -47,11 +59,11 @@ export module RangeUtils {
                 break;
             } 
         }
-        if (range.toString()[0] === "(") matchedParenthesis = true;
+        if (range.toString()[0] === "(" || range.toString()[0] === "（") matchedParenthesis = true;
         if (spaceEaten && range.startOffset !== originalRange.startOffset) range.setStart(range.startContainer, range.startOffset + 1);
 
         spaceEaten = true;
-        while (range.toString()[range.toString().length-1].match(matchedParenthesis ? /[^\)]/ : /[^\.\n;:]/)) {
+        while (range.toString()[range.toString().length-1].match(matchedParenthesis ? /[^\)）]/ : /[^\.\n;:。！？；：…]/)) {
             try {
                 range.setEnd(range.endContainer, range.endOffset + 1);   
             } catch (e) {

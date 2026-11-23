@@ -1,6 +1,6 @@
 import { FaPaintBrush } from "react-icons/fa";
-import { TextSelection, useModelStore } from "../../Model";
-import { useUndoModelStore } from "../../UndoModel";
+import { useModelStore } from "../../Model";
+import { runJob, startJob } from "../../PendingEdits";
 import { TextToneChanger } from "../promptTools/TextToneChanger";
 import { ToolTextSelectionEvent, ToolbarTool } from "./ToolbarTool";
 
@@ -33,17 +33,10 @@ export class DrawTool extends ToolbarTool {
         ];
 
         if (text.length > 1) {
-            new TextToneChanger(text, startingTone).execute(tone).then(result => {
-                const selectedTexts = useModelStore.getState().selectedTexts;
-                const newSelection: TextSelection[] = [];
-                for (const selectedText of selectedTexts) {
-                    newSelection.push({ ...selectedText, text: result, isLoading: false });
-                }
-                useUndoModelStore.getState().storeUndoState();
-                useModelStore.getState().animateNextChanges();
-                useModelStore.getState().setSelectedTexts(newSelection);
-                useModelStore.getState().setSelectedTexts([]);
-            });
+            // 结果写回发请求时标记的原文，等待期间可以点别处或改写其他文字
+            event.preventTextSelection = true;
+            const job = startJob(event.editor, event.slateRange, this.getMarksClassname());
+            runJob(job, new TextToneChanger(text, startingTone).execute(tone), DrawTool.getToolName());
           }
     }
 

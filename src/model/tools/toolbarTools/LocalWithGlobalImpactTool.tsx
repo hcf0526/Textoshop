@@ -1,8 +1,7 @@
-import { Editor, Transforms } from "slate";
+import { Editor } from "slate";
+import { runJob, startJob } from "../../PendingEdits";
 import { ReactEditor } from "slate-react";
 import { RangeUtils } from "../../../view/components/TextSelection";
-import { useModelStore } from "../../Model";
-import { useUndoModelStore } from "../../UndoModel";
 import { ToolTextSelectionEvent, ToolbarTool } from "./ToolbarTool";
 
 export class LocalWithGlobalImpactTool extends ToolbarTool {
@@ -32,12 +31,10 @@ export class LocalWithGlobalImpactTool extends ToolbarTool {
             const endText = Editor.string(event.editor, endRange);
 
             if (text.length > 1) {
-                this.executeLocalWithGlobalImpactModification(startText, text, endText).then(result => {
-                    useUndoModelStore.getState().storeUndoState();
-                    useModelStore.getState().setSelectedTexts([]);
-                    useModelStore.getState().animateNextChanges();
-                    Transforms.insertText(event.editor, result, { at: sentenceSlateRange });
-                });
+                // 标记整句，结果写回这一句，等待期间可以点别处或改写其他文字
+                event.preventTextSelection = true;
+                const job = startJob(event.editor, sentenceSlateRange, this.getMarksClassname());
+                runJob(job, this.executeLocalWithGlobalImpactModification(startText, text, endText), this.name);
               }
         }
     }

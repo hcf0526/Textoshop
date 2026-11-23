@@ -7,13 +7,16 @@ import ReactMarkdown from 'react-markdown';
 import { Transforms, createEditor } from "slate";
 import { withHistory } from "slate-history";
 import { Editable, Slate, withReact } from "slate-react";
+import { resolveModel } from "../model/LLMConfig";
 import { MessageGPT, openai, useModelStore } from "../model/Model";
 import { TextLayerUtils } from "../model/utils/TextLayerUtils";
 import { useStudyStore } from "./StudyModel";
+import { useT } from "../i18n";
 
 
 
 export default function BaselineInterface(props: { children?: React.ReactNode }) {
+  const t = useT();
   const [textInputValue, setTextInputValue] = useState("");
   const [gptMessages, setGptMessages] = useState<MessageGPT[]>([
   ]);
@@ -55,7 +58,7 @@ export default function BaselineInterface(props: { children?: React.ReactNode })
     // Send the message to ChatGPT
     (async () => {
       const stream = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: resolveModel(),
         messages: messages,
         stream: true,
       });
@@ -181,7 +184,7 @@ export default function BaselineInterface(props: { children?: React.ReactNode })
         </div>
         {/* ChatGPT Side */}
         <div style={{ position: 'relative', width: '30%', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Button variant="light" isIconOnly disabled={gptMessages.length === 0} style={{top: 5, right: 5, fontSize: 16, position: 'absolute'}} size="sm" 
+          <Button variant="light" isIconOnly disabled={gptMessages.length === 0} style={{top: 5, right: 5, fontSize: 16, position: 'absolute'}} size="sm"
             onClick={() => setGptMessages([])}
           ><FaTrashCan/></Button>
           {/* Messages */}
@@ -217,7 +220,7 @@ export default function BaselineInterface(props: { children?: React.ReactNode })
 
 
               minRows={1}
-              placeholder="Message ChatGPT" />
+              placeholder={t('Message ChatGPT')} />
             <Button isDisabled={textInputValue.length === 0} isIconOnly color={'primary'} style={{ position: 'absolute', right: 5, bottom: 5 }} size={'md'}
               onClick={onMessageSend}
             >

@@ -11,7 +11,7 @@ export class TextTenseChanger extends PromptTool<{start: string, text: string, e
 
         const tense = type.toString().toLowerCase();
         const label = "PART_TO_" + tense.toUpperCase();
-        let prompt = `${this.input.start.trim()} ${label} ${this.input.end.trim()}\n\n` + `${label}: ${this.input.text.trim()}\n\nRewrite this text by changing ${label} to the ${tense} tense.`;
+        let prompt = `${this.input.start.trim()} ${label} ${this.input.end.trim()}\n\n` + `${label}: ${this.input.text.trim()}\n\nRewrite this text by changing ${label} to the ${tense} tense. Keep the same language as the original text.`;
 
         return useModelStore.getState().executePrompt({ prompt: prompt }).then(result => {
             const newText = TextUtils.getFittingString(result.result, this.input.start + this.input.text + this.input.end);

@@ -1,0 +1,15 @@
+services:
+  textoshop:
+    image: textoshop:latest
+    container_name: textoshop
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5020:8080"
+    # users.json 账号、secret 会话密钥、settings.json 用户配置，服务只写 settings.json
+    volumes:
+      - ./data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"

@@ -10,7 +10,7 @@ export class TextSmudger extends PromptTool<string, void, string> {
         const text = this.input;
 
 
-        let prompt = `${text}\n\n` + "Return a rewritten version.";
+        let prompt = `${text}\n\n` + "Return a rewritten version. Keep the same language as the original text.";
 
         return useModelStore.getState().executePrompt({ prompt: prompt }).then(result => {
             const newText = TextUtils.getFittingString(result.result, text);
